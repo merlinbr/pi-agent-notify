@@ -25,7 +25,17 @@ Available tool:
 notify_discord
 ```
 
-You can ask Pi things like:
+## Current behavior
+
+Once Discord is configured, Pi will automatically send lifecycle notifications for things like:
+
+- task completion
+- attention needed / blocked runs
+- risky commands
+
+The `notify_discord` tool is for explicit one-off messages you ask Pi to send.
+
+You can still ask Pi things like:
 
 ```text
 Notify me on Discord when the tests finish.
@@ -36,6 +46,8 @@ or:
 ```text
 Send me a Discord notification if you get blocked.
 ```
+
+but those examples currently describe the built-in automatic behavior, not an opt-in-only mode.
 
 ## Install
 
@@ -150,6 +162,8 @@ The extension can notify when:
 - Pi is about to run a potentially risky command
 - You explicitly ask Pi to send a notification
 
+If Discord is configured, these automatic notifications are sent by default.
+
 If Discord is not configured yet, automatic notifications are skipped silently so normal Pi conversations are not interrupted.
 
 Explicit commands like `/discord-notify test` or the `notify_discord` tool will tell you when setup is missing.
@@ -164,6 +178,7 @@ Webhook requests also use a timeout to avoid waiting forever on network issues.
 
 Possible next steps:
 
+- Add a manual-only notification mode toggle
 - Rename user-facing command from `/discord-notify` to provider-neutral `/notify`
 - Rename tool from `notify_discord` to `notify_user` or `send_notification`
 - Add provider selection
