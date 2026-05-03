@@ -90,10 +90,16 @@ export function detectNeedsInput(summary: string | undefined) {
   }
 
   const hasQuestion = normalized.includes("?");
-  const hasChoiceList = /(^|\n)\s*(?:\d+[.)]|[-*])\s+/.test(summary);
-  const hasDecisionPrompt = /(?:continue|choose|select|pick|prefer|want)\b/i.test(summary);
+  const hasChoiceList =
+    /(^|\n)\s*(?:\d+[.)]|[a-zA-Z][.)]|[-*])\s+/.test(summary);
+  const hasDecisionPrompt =
+    /(?:continue|choose|select|pick|prefer|want)\b/i.test(summary);
 
-  return hasQuestion && hasChoiceList && hasDecisionPrompt;
+  // A question paired with a structured choice list is a clear ask for input,
+  // even without an explicit decision-prompt word ("choose", "want", etc.).
+  if (hasQuestion && hasChoiceList) return true;
+
+  return hasQuestion && hasDecisionPrompt;
 }
 
 export function getAgentEndStatus(options: AgentEndStatusOptions) {

@@ -39,6 +39,12 @@ describe("notification formatting", () => {
       ),
     ).toBe(true);
     expect(detectNeedsInput("Should I continue here or stop first?")).toBe(true);
+    // Lettered choice list (A), B), C)) — no decision-prompt word needed
+    expect(
+      detectNeedsInput(
+        "How do you feel about X?\n\nA) Option one\nB) Option two\nC) Option three",
+      ),
+    ).toBe(true);
   });
 
   test("does not flag normal completion or incidental questions", () => {
