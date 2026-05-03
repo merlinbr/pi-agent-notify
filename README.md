@@ -45,10 +45,11 @@ Pi auto-loads extensions from:
 ~/.pi/agent/extensions/*.ts
 ```
 
-So the easiest install is to copy `notify.ts` to:
+So the easiest install is to copy `notify.ts` and `notify-format.ts` to:
 
 ```text
 ~/.pi/agent/extensions/notify.ts
+~/.pi/agent/extensions/notify-format.ts
 ```
 
 Then restart Pi or run inside Pi:
@@ -63,10 +64,11 @@ If this repository itself is placed inside `~/.pi/agent/extensions/pi-agent-noti
 
 Valid options:
 
-1. Copy/symlink the file to the top-level extensions folder:
+1. Copy/symlink the files to the top-level extensions folder:
 
    ```text
    ~/.pi/agent/extensions/notify.ts
+   ~/.pi/agent/extensions/notify-format.ts
    ```
 
 2. Or rename/copy it inside the repo as:

@@ -4,6 +4,12 @@ import { Type } from "typebox";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
+import {
+  buildAgentEndDiscordPayload,
+  extractAssistantText,
+  truncate,
+  type DiscordPayload,
+} from "./notify-format";
 
 const CONFIG_PATH = join(homedir(), ".pi", "agent", "discord-notify.json");
 const ENV_WEBHOOK_URL = "PI_DISCORD_WEBHOOK_URL";
@@ -68,10 +74,6 @@ function isLikelyDiscordWebhook(url: string) {
   }
 }
 
-function truncate(text: string, max = 1500) {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
-
 function truncateDiscordMessage(text: string) {
   return truncate(text, DISCORD_LIMIT - 50);
 }
@@ -82,7 +84,13 @@ function formatDuration(ms: number) {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-async function postDiscord(content: string, signal?: AbortSignal) {
+function buildDiscordRequestBody(payload: string | DiscordPayload) {
+  return typeof payload === "string"
+    ? { content: truncateDiscordMessage(payload) }
+    : payload;
+}
+
+async function postDiscord(payload: string | DiscordPayload, signal?: AbortSignal) {
   const webhookUrl = await getWebhookUrl();
   if (!webhookUrl) {
     throw new Error(
@@ -105,7 +113,7 @@ async function postDiscord(content: string, signal?: AbortSignal) {
     const res = await fetch(webhookUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ content: truncateDiscordMessage(content) }),
+      body: JSON.stringify(buildDiscordRequestBody(payload)),
       signal: combinedSignal,
     });
 
@@ -125,9 +133,9 @@ async function postDiscord(content: string, signal?: AbortSignal) {
   }
 }
 
-async function tryPostDiscord(content: string, ctx?: any, signal?: AbortSignal) {
+async function tryPostDiscord(payload: string | DiscordPayload, ctx?: any, signal?: AbortSignal) {
   try {
-    await postDiscord(content, signal);
+    await postDiscord(payload, signal);
     return true;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -182,30 +190,24 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
+  pi.on("agent_end", async (event, ctx) => {
     const duration =
       agentStartedAt > 0
         ? formatDuration(Date.now() - agentStartedAt)
         : "unknown";
 
-    const maybeSession = (ctx as any)?.session;
-
-    const summary =
-      maybeSession?.summary ??
-      maybeSession?.lastAssistantMessage ??
-      maybeSession?.lastMessage ??
-      "";
+    const summary = extractAssistantText((event as any).messages);
 
     const errors =
-      maybeSession?.errors ??
-      maybeSession?.error ??
-      maybeSession?.failed ??
+      (event as any)?.errors ??
+      (event as any)?.error ??
+      (event as any)?.failed ??
       null;
 
     const interrupted =
-      maybeSession?.interrupted ??
-      maybeSession?.aborted ??
-      maybeSession?.cancelled ??
+      (event as any)?.interrupted ??
+      (event as any)?.aborted ??
+      (event as any)?.cancelled ??
       false;
 
     const needsAttention =
@@ -218,26 +220,15 @@ export default function (pi: ExtensionAPI) {
       ? "⚠️ Pi finished and may need review"
       : "✅ Pi finished";
 
-    let message =
-      `${status}\n` +
-      `**Project:** \`${process.cwd()}\`\n` +
-      `**Duration:** ${duration}`;
-
-    if (riskyCommandSeen) {
-      message += `\n**Note:** risky command was detected`;
-    }
-
-    if (interrupted) {
-      message += `\n**Note:** run appears to have been interrupted`;
-    }
-
-    if (errors) {
-      message += `\n**Errors:**\n\`\`\`\n${truncate(String(errors), 1000)}\n\`\`\``;
-    }
-
-    if (summary) {
-      message += `\n\n**Summary:**\n${truncate(String(summary), 1400)}`;
-    }
+    const message = buildAgentEndDiscordPayload({
+      status,
+      projectPath: process.cwd(),
+      duration,
+      summary,
+      riskyCommandSeen,
+      interrupted,
+      errors,
+    });
 
     await tryPostDiscord(message, ctx, ctx.signal);
   });
