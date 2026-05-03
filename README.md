@@ -30,6 +30,7 @@ notify_discord
 Once Discord is configured, Pi will automatically send lifecycle notifications for things like:
 
 - task completion
+- needs user input / decision before continuing
 - attention needed / blocked runs
 - risky commands
 
@@ -157,10 +158,26 @@ Using `/discord-notify setup` writes the config file for you, so you do not need
 The extension can notify when:
 
 - Pi finishes a task
+- Pi needs your input before continuing
 - Pi may need your attention
 - Pi is blocked
 - Pi is about to run a potentially risky command
 - You explicitly ask Pi to send a notification
+
+Automatic end-of-run notifications currently distinguish:
+
+- `✅ Pi finished` — completed without follow-up
+- `⚠️ Pi needs your input` — the final assistant message appears to be waiting on a choice or confirmation
+- `⚠️ Pi finished and may need review` — interruption, errors, risky command context, or other attention-needed state
+
+Example needs-input case:
+
+```text
+Before I create the Phase 9 dashboard build-out plan, should I:
+1. Continue here and leave that file alone
+2. Include/review that file as prior context
+3. Stop so you can clean it up first
+```
 
 If Discord is configured, these automatic notifications are sent by default.
 

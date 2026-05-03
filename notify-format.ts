@@ -30,6 +30,14 @@ export type AgentEndPayloadOptions = {
   errors?: unknown;
 };
 
+export type AgentEndStatusOptions = {
+  summary?: string;
+  attentionPinged?: boolean;
+  riskyCommandSeen?: boolean;
+  interrupted?: boolean;
+  errors?: unknown;
+};
+
 export function truncate(text: string, max = 1500) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
@@ -59,6 +67,53 @@ export function extractAssistantText(messages: any[] | undefined) {
   );
 
   return extractText(assistantMessages.at(-1));
+}
+
+export function detectNeedsInput(summary: string | undefined) {
+  if (!summary?.trim()) return false;
+
+  const normalized = summary
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const strongPhrases = [
+    "should i",
+    "before i continue",
+    "which would you like",
+    "do you want me to",
+    "please choose",
+    "pick one",
+    "let me know which",
+  ];
+
+  if (strongPhrases.some((phrase) => normalized.includes(phrase))) {
+    return true;
+  }
+
+  const hasQuestion = normalized.includes("?");
+  const hasChoiceList = /(^|\n)\s*(?:\d+[.)]|[-*])\s+/.test(summary);
+  const hasDecisionPrompt = /(?:continue|choose|select|pick|prefer|want)\b/i.test(summary);
+
+  return hasQuestion && hasChoiceList && hasDecisionPrompt;
+}
+
+export function getAgentEndStatus(options: AgentEndStatusOptions) {
+  const reviewNeeded =
+    Boolean(options.attentionPinged) ||
+    Boolean(options.riskyCommandSeen) ||
+    Boolean(options.errors) ||
+    Boolean(options.interrupted);
+
+  if (reviewNeeded) {
+    return "⚠️ Pi finished and may need review";
+  }
+
+  if (detectNeedsInput(options.summary)) {
+    return "⚠️ Pi needs your input";
+  }
+
+  return "✅ Pi finished";
 }
 
 export function buildAgentEndDiscordPayload(options: AgentEndPayloadOptions): DiscordPayload {

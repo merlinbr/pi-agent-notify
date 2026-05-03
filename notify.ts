@@ -7,6 +7,7 @@ import { homedir } from "node:os";
 import {
   buildAgentEndDiscordPayload,
   extractAssistantText,
+  getAgentEndStatus,
   truncate,
   type DiscordPayload,
 } from "./notify-format";
@@ -210,15 +211,13 @@ export default function (pi: ExtensionAPI) {
       (event as any)?.cancelled ??
       false;
 
-    const needsAttention =
-      attentionPinged ||
-      riskyCommandSeen ||
-      Boolean(errors) ||
-      Boolean(interrupted);
-
-    const status = needsAttention
-      ? "⚠️ Pi finished and may need review"
-      : "✅ Pi finished";
+    const status = getAgentEndStatus({
+      summary,
+      attentionPinged,
+      riskyCommandSeen,
+      interrupted,
+      errors,
+    });
 
     const message = buildAgentEndDiscordPayload({
       status,
