@@ -53,8 +53,6 @@ describe("notification formatting", () => {
         summary: "Before I continue, should I:\n1. Continue\n2. Stop",
         errors: null,
         interrupted: false,
-        riskyCommandSeen: false,
-        attentionPinged: false,
       }),
     ).toBe("⚠️ Pi needs your input");
 
@@ -63,8 +61,6 @@ describe("notification formatting", () => {
         summary: "Done. Tests passed.",
         errors: null,
         interrupted: false,
-        riskyCommandSeen: false,
-        attentionPinged: false,
       }),
     ).toBe("✅ Pi finished");
 
@@ -73,10 +69,26 @@ describe("notification formatting", () => {
         summary: "Done.",
         errors: "boom",
         interrupted: false,
-        riskyCommandSeen: false,
-        attentionPinged: false,
       }),
     ).toBe("⚠️ Pi finished and may need review");
+  });
+
+  test("does not flag normal completion just because risky commands like git push ran", () => {
+    expect(
+      getAgentEndStatus({
+        summary: "Pushed 2 commits. All tasks complete.",
+        errors: null,
+        interrupted: false,
+      }),
+    ).toBe("✅ Pi finished");
+
+    expect(
+      getAgentEndStatus({
+        summary: "Done.",
+        errors: null,
+        interrupted: false,
+      }),
+    ).toBe("✅ Pi finished");
   });
 
   test("builds a Discord embed card for agent completion", () => {

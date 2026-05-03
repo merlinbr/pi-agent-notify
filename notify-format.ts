@@ -32,8 +32,6 @@ export type AgentEndPayloadOptions = {
 
 export type AgentEndStatusOptions = {
   summary?: string;
-  attentionPinged?: boolean;
-  riskyCommandSeen?: boolean;
   interrupted?: boolean;
   errors?: unknown;
 };
@@ -100,8 +98,6 @@ export function detectNeedsInput(summary: string | undefined) {
 
 export function getAgentEndStatus(options: AgentEndStatusOptions) {
   const reviewNeeded =
-    Boolean(options.attentionPinged) ||
-    Boolean(options.riskyCommandSeen) ||
     Boolean(options.errors) ||
     Boolean(options.interrupted);
 

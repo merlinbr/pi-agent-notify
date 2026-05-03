@@ -236,8 +236,6 @@ export default function (pi: ExtensionAPI) {
 
     const status = getAgentEndStatus({
       summary,
-      attentionPinged,
-      riskyCommandSeen,
       interrupted,
       errors,
     });
