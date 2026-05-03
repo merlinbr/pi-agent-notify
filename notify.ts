@@ -19,11 +19,14 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 type DiscordNotifyConfig = {
   webhookUrl?: string;
+  notifySubAgents?: boolean;
 };
 
 let agentStartedAt = 0;
 let attentionPinged = false;
 let riskyCommandSeen = false;
+let agentDepth = 0;
+let notifySubAgents = false;
 
 async function loadConfig(): Promise<DiscordNotifyConfig> {
   try {
@@ -151,13 +154,19 @@ async function tryPostDiscord(payload: string | DiscordPayload, ctx?: any, signa
   }
 }
 
+async function refreshConfig() {
+  const config = await loadConfig();
+  notifySubAgents = config.notifySubAgents === true;
+}
+
 function helpText() {
   return [
     "Discord Notify commands:",
-    "  /discord-notify setup   Prompt for and save a Discord webhook URL",
-    "  /discord-notify test    Send a test notification",
-    "  /discord-notify status  Show whether Discord Notify is configured",
-    "  /discord-notify clear   Remove the saved webhook URL",
+    "  /discord-notify setup            Prompt for and save a Discord webhook URL",
+    "  /discord-notify test             Send a test notification",
+    "  /discord-notify status           Show whether Discord Notify is configured",
+    "  /discord-notify subagents on|off Toggle sub-agent notifications (default off)",
+    "  /discord-notify clear            Remove the saved webhook URL",
     "",
     `Config file: ${CONFIG_PATH}`,
     `Env override: ${ENV_WEBHOOK_URL}`,
@@ -165,10 +174,16 @@ function helpText() {
 }
 
 export default function (pi: ExtensionAPI) {
+  refreshConfig();
+
   pi.on("agent_start", async () => {
-    agentStartedAt = Date.now();
-    attentionPinged = false;
-    riskyCommandSeen = false;
+    agentDepth++;
+    // Only reset tracking state when the outermost (main) agent starts, not for sub-agents.
+    if (agentDepth === 1) {
+      agentStartedAt = Date.now();
+      attentionPinged = false;
+      riskyCommandSeen = false;
+    }
   });
 
   pi.on("tool_call", async (event, ctx) => {
@@ -182,16 +197,24 @@ export default function (pi: ExtensionAPI) {
       riskyCommandSeen = true;
       attentionPinged = true;
 
-      await tryPostDiscord(
-        `⚠️ Pi may need attention in \`${process.cwd()}\` before running:\n\n` +
-          `\`\`\`sh\n${truncate(command, 1400)}\n\`\`\``,
-        ctx,
-        ctx.signal,
-      );
+      // Only notify for risky commands from the main agent, not sub-agents.
+      if (agentDepth === 1) {
+        await tryPostDiscord(
+          `⚠️ Pi may need attention in \`${process.cwd()}\` before running:\n\n` +
+            `\`\`\`sh\n${truncate(command, 1400)}\n\`\`\``,
+          ctx,
+          ctx.signal,
+        );
+      }
     }
   });
 
   pi.on("agent_end", async (event, ctx) => {
+    agentDepth = Math.max(0, agentDepth - 1);
+
+    // Suppress sub-agent notifications unless the user opted in.
+    if (agentDepth > 0 && !notifySubAgents) return;
+
     const duration =
       agentStartedAt > 0
         ? formatDuration(Date.now() - agentStartedAt)
@@ -286,6 +309,30 @@ export default function (pi: ExtensionAPI) {
             : "Discord Notify is not configured. Run /discord-notify setup.",
           configured ? "success" : "warning",
         );
+        return;
+      }
+
+      if (action === "subagents" || action.startsWith("subagents ")) {
+        const subAction = action.split(/\s+/, 2)[1];
+
+        if (subAction === "on") {
+          const config = await loadConfig();
+          config.notifySubAgents = true;
+          await saveConfig(config);
+          notifySubAgents = true;
+          ctx.ui.notify("Sub-agent notifications enabled.", "success");
+        } else if (subAction === "off") {
+          const config = await loadConfig();
+          config.notifySubAgents = false;
+          await saveConfig(config);
+          notifySubAgents = false;
+          ctx.ui.notify("Sub-agent notifications disabled.", "success");
+        } else {
+          ctx.ui.notify(
+            `Sub-agent notifications are currently ${notifySubAgents ? "on" : "off"}. Use /discord-notify subagents on|off to toggle.`,
+            "info",
+          );
+        }
         return;
       }
 
